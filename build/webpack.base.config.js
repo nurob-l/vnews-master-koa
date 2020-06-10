@@ -1,19 +1,18 @@
 const path = require('path')
-const webpack = require('webpack')
-const vueConfig = require('./vue-loader.config')
-const ExtractTextPlugin = require('extract-text-webpack-plugin')
-const FriendlyErrorsPlugin = require('friendly-errors-webpack-plugin')
+const VueLoaderPlugin = require('vue-loader/lib/plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 
 const isProd = process.env.NODE_ENV === 'production'
 
 module.exports = {
+  mode: isProd ? 'production' : 'development',
   devtool: isProd
     ? false
-    : '#cheap-module-source-map',
+    : 'cheap-module-source-map',
   output: {
     path: path.resolve(__dirname, '../dist'),
     publicPath: '/dist/',
-    filename: '[name].[chunkhash].js'
+    filename: isProd ? '[name].[contenthash].js' : '[name].bundle.js'
   },
   resolve: {
     alias: {
@@ -21,17 +20,51 @@ module.exports = {
     }
   },
   module: {
-    noParse: /es6-promise\.js$/, // avoid webpack shimming process
+    // noParse: /es6-promise\.js$/, // avoid webpack shimming process
     rules: [
       {
         test: /\.vue$/,
-        loader: 'vue-loader',
-        options: vueConfig
+        loader: 'vue-loader'
       },
       {
-        test: /\.js$/,
-        loader: 'babel-loader',
-        exclude: /node_modules/
+        test: /\.css$/i,
+        use: [
+          isProd
+            // 分离提取CSS
+            ? MiniCssExtractPlugin.loader
+            // vue-style-loader会应用到普通的 `.css` 文件
+            // 以及 `.vue` 文件中的 `<style>` 块
+            : 'vue-style-loader',
+          'css-loader'
+        ]
+      },
+      {
+        test: /\.styl(us)?$/,
+        use: [
+          isProd
+            // 分离提取CSS
+            ? MiniCssExtractPlugin.loader
+            // vue-style-loader会应用到普通的 `.css` 文件
+            // 以及 `.vue` 文件中的 `<style>` 块
+            : 'vue-style-loader',
+          'css-loader',
+          'stylus-loader'
+        ]
+      },
+      // 它会应用到普通的 `.js` 文件
+      // 以及 `.vue` 文件中的 `<script>` 块
+      // 配置参考： https://webpack.js.org/loaders/babel-loader/
+      //            https://www.webpackjs.com/loaders/babel-loader/
+      {
+        test: /\.m?js$/,
+        exclude: /(node_modules|bower_components)/,
+        use: {
+          loader: 'babel-loader?cacheDirectory=true',
+          options: {
+            presets: ['@babel/preset-env'],
+            plugins: ['@babel/plugin-transform-runtime']
+          }
+        }
       },
       {
         test: /\.(png|jpg|gif|svg)$/,
@@ -40,15 +73,6 @@ module.exports = {
           limit: 10000,
           name: '[name].[ext]?[hash]'
         }
-      },
-      {
-        test: /\.css$/,
-        use: isProd
-          ? ExtractTextPlugin.extract({
-              use: 'css-loader?minimize',
-              fallback: 'vue-style-loader'
-            })
-          : ['vue-style-loader', 'css-loader']
       }
     ]
   },
@@ -56,17 +80,15 @@ module.exports = {
     maxEntrypointSize: 300000,
     hints: isProd ? 'warning' : false
   },
-  plugins: isProd
-    ? [
-        new webpack.optimize.UglifyJsPlugin({
-          compress: { warnings: false }
-        }),
-        new webpack.optimize.ModuleConcatenationPlugin(),
-        new ExtractTextPlugin({
-          filename: 'common.[chunkhash].css'
-        })
-      ]
-    : [
-        new FriendlyErrorsPlugin()
-      ]
+  plugins: [
+    new VueLoaderPlugin(),
+    ...(isProd
+      ? [
+          new MiniCssExtractPlugin({
+            filename: 'style.css'
+          })
+        ]
+      : []
+    )
+  ]
 }

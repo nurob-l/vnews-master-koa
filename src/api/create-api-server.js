@@ -34,7 +34,7 @@ import websiteConfig from '../config/website';
 export function createAPI() {
     let api = {};
     api.onServer = true;
-    api.cachedItems = LRU({
+    api.cachedItems = new LRU({
         max: 1000,
         maxAge: 1000 * 60 * 2 // 2 min cache
     });

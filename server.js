@@ -1,28 +1,22 @@
 const fs = require('fs')
 const path = require('path')
 const LRU = require('lru-cache')
-// const express = require('express')
 const Koa = require('koa')
 const Router = require('koa-router')
 const koaStatic = require('koa-static')
 const mount = require('koa-mount')
-// const favicon = require('serve-favicon')
 const favicon = require('koa-favicon')
-// const compression = require('compression')
 const compress = require('koa-compress')
-// const microcache = require('route-cache')
 const koaCash = require('koa-cash')
 const resolve = file => path.resolve(__dirname, file)
-const {
-  createBundleRenderer
-} = require('vue-server-renderer')
+const { createBundleRenderer } = require('vue-server-renderer')
 const axios = require('axios');
 const websiteConfig = require('./src/config/website');
 
 const isProd = process.env.NODE_ENV === 'production'
 const useMicroCache = process.env.MICRO_CACHE !== 'false'
 const serverInfo =
-  `express/${require('express/package.json').version} ` +
+  `koa/${require('koa/package.json').version} ` +
   `vue-server-renderer/${require('vue-server-renderer/package.json').version}`
 
 const app = new Koa()
@@ -32,7 +26,7 @@ function createRenderer(bundle, options) {
   // https://github.com/vuejs/vue/blob/dev/packages/vue-server-renderer/README.md#why-use-bundlerenderer
   return createBundleRenderer(bundle, Object.assign(options, {
     // for component caching
-    cache: LRU({
+    cache: new LRU({
       max: 1000,
       maxAge: 1000 * 60 * 15
     }),
@@ -66,28 +60,18 @@ if (isProd) {
     app,
     templatePath,
     (bundle, options) => {
-      console.log('bundle callback..');
+      console.log('bundle callback..')
       renderer = createRenderer(bundle, options)
     }
   )
 }
 
-// const serve = (path, cache) => express.static(resolve(path), {
-//     maxAge: cache && isProd ? 1000 * 60 * 60 * 24 * 30 : 0
-// })
 const serve = (path, cache) => koaStatic(resolve(path), {
   maxAge: cache && isProd ? 1000 * 60 * 60 * 24 * 30 : 0
 })
 
-// app.use(compression({threshold: 0}))
-app.use(compress({
-  threshold: 0
-}))
+app.use(compress({ threshold: 0 }))
 app.use(favicon('./public/logo-48.png'))
-// app.use('/dist', serve('./dist', true))
-// app.use('/public', serve('./public', true))
-// app.use('/manifest.json', serve('./manifest.json', true))
-// app.use('/service-worker.js', serve('./dist/service-worker.js'))
 app.use(mount('/dist', serve('./dist', true)))
 app.use(mount('/public', serve('./public', true)))
 app.use(mount('/manifest.json', serve('./manifest.json', true)))
@@ -115,46 +99,13 @@ app.use(koaCash({
   }
 }))
 
-// function render(req, res) {
-//     const s = Date.now()
-
-//     res.setHeader("Content-Type", "text/html")
-//     res.setHeader("Server", serverInfo)
-
-//     const handleError = err => {
-//         if (err.url) {
-//             res.redirect(err.url)
-//         } else if (err.code === 404) {
-//             res.status(404).send('404 | Page Not Found')
-//         } else {
-//             // Render Error Page or Redirect
-//             res.status(500).send('500 | Internal Server Error')
-//             console.error(`error during render : ${req.url}`)
-//             console.error(err.stack)
-//         }
-//     }
-
-//     const context = {
-//         title: '掘金 - koa', // default title
-//         url: req.url
-//     }
-//     renderer.renderToString(context, (err, html) => {
-//         if (err) {
-//             return handleError(err)
-//         }
-//         res.send(html)
-//         if (!isProd) {
-//             console.log(`whole request: ${Date.now() - s}ms`)
-//         }
-//     })
-// }
 async function render(ctx) {
   if (await ctx.cashed()) return
   
   const s = Date.now()
 
   ctx.response.type = 'text/html'
-  // ctx.res.setHeader("Server", serverInfo)
+  ctx.response.set({ 'Server': serverInfo })
 
   const handleError = err => {
     if (err.url) {
@@ -172,11 +123,11 @@ async function render(ctx) {
   }
 
   const context = {
-    title: '掘金 - koa', // default title
+    title: '掘金', // default title
     url: ctx.url
   }
   try {
-    ctx.res.body = await renderer.renderToString(context)
+    ctx.response.body = await renderer.renderToString(context)
     if (!isProd) {
       console.log(`whole request: ${Date.now() - s}ms`)
     }
@@ -185,20 +136,6 @@ async function render(ctx) {
   }
 }
 
-// app.get('/v1/get_entry_by_rank', (req, res) => {
-//     console.log(req.url);
-//     axios({
-//         method:'get',
-//         url: websiteConfig.host + req.url,
-//         responseType:'stream'
-//     }).then(response => {
-//         // console.log(response);
-//         response.data.pipe(res);
-//     }).catch(err => {
-//         console.error(err);
-//         res.status(500).send('500 | Internal Server Error')
-//     });
-// });
 router.get('/v1/get_entry_by_rank', async (ctx, next) => {
   if (await ctx.cashed()) return
   console.log(ctx.req.url)
@@ -214,19 +151,6 @@ router.get('/v1/get_entry_by_rank', async (ctx, next) => {
   });
 })
 
-// app.get('*', isProd ? render : (req, res) => {
-//     readyPromise.then(() => render(req, res))
-// })
-// router.get('(.*)', async (ctx, next) => {
-//   if (await ctx.cashed()) return
-  
-//   if (isProd) {
-//     await render(ctx)
-//   } else {
-//     await readyPromise
-//     await render(ctx)
-//   }
-// })
 router.get('(.*)', isProd ? render : async (ctx) => {
   await readyPromise
   await render(ctx)

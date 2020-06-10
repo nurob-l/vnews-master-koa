@@ -11,7 +11,9 @@ const serverConfig = require('./webpack.server.config')
 const readFile = (fs, file) => {
   try {
     return fs.readFileSync(path.join(clientConfig.output.path, file), 'utf-8')
-  } catch (e) {}
+  } catch (e) {
+    console.log(`Error catched in reading ${file}...\n`, e)
+  }
 }
 
 module.exports = function setupDevServer (app, templatePath, cb) {
@@ -49,12 +51,12 @@ module.exports = function setupDevServer (app, templatePath, cb) {
   )
 
   // dev middleware
+  let devMiddleware
   const clientCompiler = webpack(clientConfig)
-  const devMiddleware = webpackDevMiddleware(clientCompiler, {
+  app.use(devMiddleware = webpackDevMiddleware(clientCompiler, {
     publicPath: clientConfig.output.publicPath,
     noInfo: true
-  })
-  app.use(devMiddleware)
+  }))
   clientCompiler.plugin('done', stats => {
     stats = stats.toJson()
     stats.errors.forEach(err => console.error(err))

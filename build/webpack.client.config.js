@@ -6,9 +6,7 @@ const VueSSRClientPlugin = require('vue-server-renderer/client-plugin')
 const Category = require('../src/config/category');
 
 const config = merge(base, {
-  entry: {
-    app: './src/entry-client.js'
-  },
+  entry: './src/entry-client.js',
   resolve: {
     alias: {
       'create-api': './create-api-client.js'
@@ -20,26 +18,22 @@ const config = merge(base, {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
       'process.env.VUE_ENV': '"client"'
     }),
-    // extract vendor chunks for better caching
-    new webpack.optimize.CommonsChunkPlugin({
-      name: 'vendor',
-      minChunks: function (module) {
-        // a module is extracted into the vendor chunk if...
-        return (
-          // it's inside node_modules
-          /node_modules/.test(module.context) &&
-          // and not a CSS file (due to extract-text-webpack-plugin limitation)
-          !/\.css$/.test(module.request)
-        )
-      }
-    }),
-    // extract webpack runtime & manifest to avoid vendor chunk hash changing
-    // on every build.
-    new webpack.optimize.CommonsChunkPlugin({
-      name: 'manifest'
-    }),
     new VueSSRClientPlugin()
-  ]
+  ],
+  
+  optimization: {
+    moduleIds: 'hashed', // 修复因module.id的修改而导致hash的变化
+    runtimeChunk: 'single', // 将 webpack 的样板(boilerplate)和 manifest 提取出来
+    splitChunks: { // 将第三方库(library)（例如 lodash 或 react）提取到单独的 vendor chunk 文件中
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        }
+      }
+    }
+  }
 })
 
 if (process.env.NODE_ENV === 'production') {
@@ -48,9 +42,9 @@ if (process.env.NODE_ENV === 'production') {
   config.plugins.push(
     // auto generate service worker
     new SWPrecachePlugin({
-      cacheId: 'vue-hn',
+      cacheId: 'vue-juejin',
       filename: 'service-worker.js',
-      minify: false,
+      minify: true,
       dontCacheBustUrlsMatching: /./,
       staticFileGlobsIgnorePatterns: [/\.map$/, /\.json$/],
       runtimeCaching: [

@@ -149,14 +149,16 @@ app.use(koaCash({
 //     })
 // }
 async function render(ctx) {
+  if (await ctx.cashed()) return
+  
   const s = Date.now()
 
-  ctx.res.setHeader("Content-Type", "text/html")
-  ctx.res.setHeader("Server", serverInfo)
+  ctx.response.type = 'text/html'
+  // ctx.res.setHeader("Server", serverInfo)
 
   const handleError = err => {
     if (err.url) {
-      ctx.res.redirect(err.url)
+      ctx.redirect(err.url)
     } else if (err.code === 404) {
       ctx.response.status = 404
       ctx.response.body = '404 | Page Not Found'
@@ -171,11 +173,10 @@ async function render(ctx) {
 
   const context = {
     title: '掘金 - koa', // default title
-    url: ctx.req.url
+    url: ctx.url
   }
   try {
-    const html = await renderer.renderToString(context)
-    ctx.res.body = html
+    ctx.res.body = await renderer.renderToString(context)
     if (!isProd) {
       console.log(`whole request: ${Date.now() - s}ms`)
     }
@@ -216,14 +217,19 @@ router.get('/v1/get_entry_by_rank', async (ctx, next) => {
 // app.get('*', isProd ? render : (req, res) => {
 //     readyPromise.then(() => render(req, res))
 // })
-router.get('(.*)', async (ctx, next) => {
-  if (await ctx.cashed()) return
-  if (isProd) {
-    await render(ctx)
-  } else {
-    await readyPromise
-    await render(ctx)
-  }
+// router.get('(.*)', async (ctx, next) => {
+//   if (await ctx.cashed()) return
+  
+//   if (isProd) {
+//     await render(ctx)
+//   } else {
+//     await readyPromise
+//     await render(ctx)
+//   }
+// })
+router.get('(.*)', isProd ? render : async (ctx) => {
+  await readyPromise
+  await render(ctx)
 })
 
 app.use(router.routes())

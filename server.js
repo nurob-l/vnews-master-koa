@@ -147,7 +147,8 @@ router.get('/v1/get_entry_by_rank', async (ctx, next) => {
     response.data.pipe(ctx.res);
   }).catch(err => {
     console.error(err)
-    ctx.res.status(500).send('500 | Internal Server Error')
+    ctx.response.status = 500
+    ctx.response.body = '500 | Internal Server Error'
   });
 })
 

@@ -15,7 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "@babel/runtime": "^7.10.2",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "vue": "^2.6.11",
     "vue-router": "^3.3.2",
     "vue-server-renderer": "^2.6.11",
